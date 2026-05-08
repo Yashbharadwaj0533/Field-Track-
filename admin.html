@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard | FieldTrack Pro</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-content {
+            background-color: var(--bg-card);
+            margin: 5% auto;
+            padding: 2rem;
+            border: 1px solid var(--border-color);
+            width: 90%;
+            max-width: 600px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .close {
+            color: var(--text-muted);
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: var(--danger);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="dashboard-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2 style="font-size: 1.25rem; margin: 0; display: flex; align-items: center;">
+                    <i class="fa-solid fa-map-location-dot text-primary" style="margin-right: 0.5rem;"></i>
+                    FieldTrack Pro
+                </h2>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" id="navDashboard">
+                    <i class="fa-solid fa-chart-pie"></i> Dashboard
+                    <!-- </a>
+                <a href="#" class="nav-item" id="navTasks">
+                    <i class="fa-solid fa-list-check"></i> Tasks
+                </a> -->
+                    <a href="#" class="nav-item" id="navEngineers">
+                        <i class="fa-solid fa-users-gear"></i> Engineers
+                    </a>
+            </nav>
+            <div style="padding: 1.5rem;">
+                <button id="logoutBtn" class="btn btn-outline"
+                    style="width: 100%; color: white; border-color: rgba(255,255,255,0.2);">
+                    <i class="fa-solid fa-arrow-right-from-bracket" style="margin-right: 0.5rem;"></i> Logout
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Topbar -->
+            <header class="topbar">
+                <div>
+                    <h2 id="pageTitle" style="margin: 0; font-size: 1.25rem;">Dashboard Overview</h2>
+                </div>
+                <div class="flex items-center gap-4">
+                    <span id="adminName" style="font-weight: 500;">Admin User</span>
+                    <div
+                        style="width: 35px; height: 35px; background: var(--primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                        <i class="fa-solid fa-user"></i>
+                    </div>
+                </div>
+            </header>
+
+            <div class="content-area">
+                <!-- DASHBOARD SECTION -->
+                <div id="dashboardSection">
+                    <!-- Statistics -->
+                    <div class="grid-stats">
+                        <div class="card stat-card">
+                            <div class="stat-icon blue">
+                                <i class="fa-solid fa-users"></i>
+                            </div>
+                            <div>
+                                <p class="text-muted" style="font-size: 0.85rem; font-weight: 600;">TOTAL ENGINEERS</p>
+                                <h3 id="statEngineers" style="font-size: 1.5rem; margin-top: 0.25rem;">0</h3>
+                            </div>
+                        </div>
+                        <div class="card stat-card">
+                            <div class="stat-icon orange">
+                                <i class="fa-solid fa-bars-progress"></i>
+                            </div>
+                            <div>
+                                <p class="text-muted" style="font-size: 0.85rem; font-weight: 600;">IN PROGRESS</p>
+                                <h3 id="statInProgress" style="font-size: 1.5rem; margin-top: 0.25rem;">0</h3>
+                            </div>
+                        </div>
+                        <div class="card stat-card">
+                            <div class="stat-icon green">
+                                <i class="fa-solid fa-check-double"></i>
+                            </div>
+                            <div>
+                                <p class="text-muted" style="font-size: 0.85rem; font-weight: 600;">COMPLETED TODAY</p>
+                                <h3 id="statCompleted" style="font-size: 1.5rem; margin-top: 0.25rem;">0</h3>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-between items-center" style="margin-bottom: 1rem;">
+                        <h3>Live Monitoring Panel</h3>
+                        <button id="openTaskModalBtn" class="btn btn-primary">
+                            <i class="fa-solid fa-plus" style="margin-right: 0.5rem;"></i> Assign New Task
+                        </button>
+                    </div>
+
+                    <!-- Map Section -->
+                    <div class="card" style="padding: 0; overflow: hidden; margin-bottom: 2rem;">
+                        <div id="map"></div>
+                    </div>
+
+                    <!-- Task List -->
+                    <div class="card">
+                        <h3 style="margin-bottom: 1rem;">Recent Tasks</h3>
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Task ID</th>
+                                        <th>Customer</th>
+                                        <th>Assigned To</th>
+                                        <th>Status</th>
+                                        <th>Priority</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tasksTableBody">
+                                    <!-- Rows generated by JS -->
+                                    <tr>
+                                        <td colspan="6" class="text-center text-muted">Loading tasks...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ENGINEERS SECTION -->
+                <div id="engineersSection" class="hidden">
+                    <div class="flex justify-between items-center" style="margin-bottom: 1.5rem;">
+                        <h3>Field Engineer Management</h3>
+                        <button id="openEngModalBtn" class="btn btn-primary">
+                            <i class="fa-solid fa-user-plus" style="margin-right: 0.5rem;"></i> Add New Engineer
+                        </button>
+                    </div>
+
+                    <div class="card">
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Engineer Name</th>
+                                        <th>Email (User ID)</th>
+                                        <th>Assigned Tickets</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="engineersTableBody">
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted">Loading engineers...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Create Task Modal -->
+    <div id="taskModal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="closeTaskModal">&times;</span>
+            <h2 style="margin-bottom: 1.5rem;">Assign New Task</h2>
+            <form id="createTaskForm">
+                <div class="form-group">
+                    <label>Customer Name</label>
+                    <input type="text" id="taskCustomer" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Address</label>
+                    <input type="text" id="taskAddress" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Problem Description</label>
+                    <textarea id="taskDesc" class="form-control" rows="3" required></textarea>
+                </div>
+                <div class="flex gap-4">
+                    <div class="form-group" style="flex: 1;">
+                        <label>Priority</label>
+                        <select id="taskPriority" class="form-control">
+                            <option value="low">Low</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="high">High</option>
+                            <option value="critical">Critical</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Assign To</label>
+                        <select id="taskAssignee" class="form-control" required>
+                            <option value="">Loading engineers...</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1rem;">
+                    <button type="button" class="btn btn-outline" id="cancelTaskBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="saveTaskBtn">Assign Task</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Engineer Modal -->
+    <div id="engModal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="closeEngModal">&times;</span>
+            <h2 style="margin-bottom: 1.5rem;">Add New Engineer</h2>
+            <form id="addEngForm">
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" id="engName" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" id="engEmail" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="engPass" class="form-control" required minlength="6">
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1rem;">
+                    <button type="button" class="btn btn-outline" id="cancelEngBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="saveEngBtn">Create Engineer</button>
+                </div>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 1rem;">
+                    Note: This will create a new login account for the engineer.
+                </p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Engineer Modal -->
+    <div id="editEngModal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="closeEditEngModal">&times;</span>
+            <h2 style="margin-bottom: 1.5rem;">Edit Engineer Profile</h2>
+            <form id="editEngForm">
+                <input type="hidden" id="editEngId">
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" id="editEngName" class="form-control" required>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1rem;">
+                    <button type="button" class="btn btn-outline" id="cancelEditEngBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="saveEditEngBtn">Update Profile</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Engineer History Modal -->
+    <div id="historyModal" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <span class="close" id="closeHistoryModal">&times;</span>
+            <h2 style="margin-bottom: 1.5rem;" id="historyModalTitle">Engineer Task History</h2>
+            <div id="historyModalContent" style="max-height: 400px; overflow-y: auto;">
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Task ID</th>
+                                <th>Customer</th>
+                                <th>Status</th>
+                                <th>Completed At</th>
+                            </tr>
+                        </thead>
+                        <tbody id="engHistoryTableBody">
+                            <!-- Rows generated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast">Action successful!</div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Scripts -->
+    <script src="config.js"></script>
+    <script src="admin.js"></script>
+</body>
+
+</html>

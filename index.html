@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Field Engineer Tracking | Login</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+
+<body>
+
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="text-center" style="margin-bottom: 2rem;">
+                <div style="font-size: 3rem; color: var(--primary); margin-bottom: 1rem;">
+                    <i class="fa-solid fa-map-location-dot"></i>
+                </div>
+                <h2 style="color: var(--primary);">FieldTrack Pro</h2>
+                <p class="text-muted">Enterprise Site Management System</p>
+            </div>
+
+            <!-- Login Form -->
+            <div id="loginForm">
+                <div class="form-group">
+                    <label for="loginEmail">Email Address</label>
+                    <input type="email" id="loginEmail" class="form-control" placeholder="Enter your email" required>
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">Password</label>
+                    <input type="password" id="loginPassword" class="form-control" placeholder="Enter your password"
+                        required>
+                </div>
+
+                <button id="loginBtn" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
+                    <i class="fa-solid fa-right-to-bracket" style="margin-right: 0.5rem;"></i> Sign In
+                </button>
+
+                <div class="text-center" style="margin-top: 1.5rem; font-size: 0.9rem;">
+                    <p class="text-muted">Are you a new Engineer? <a href="#" id="showSignupBtn"
+                            style="color: var(--primary); font-weight: 600; text-decoration: none;">Register Here</a>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Signup Form (Hidden by default) -->
+            <div id="signupForm" class="hidden">
+                <div class="form-group">
+                    <label for="signupName">Full Name</label>
+                    <input type="text" id="signupName" class="form-control" placeholder="John Doe" required>
+                </div>
+                <div class="form-group">
+                    <label for="signupEmail">Email Address</label>
+                    <input type="email" id="signupEmail" class="form-control" placeholder="engineer@example.com"
+                        required>
+                </div>
+                <div class="form-group">
+                    <label for="signupPassword">Password</label>
+                    <input type="password" id="signupPassword" class="form-control" placeholder="••••••••" required>
+                </div>
+
+                <button id="signupBtn" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
+                    <i class="fa-solid fa-user-plus" style="margin-right: 0.5rem;"></i> Create Account
+                </button>
+
+                <div class="text-center" style="margin-top: 1.5rem; font-size: 0.9rem;">
+                    <p class="text-muted">Already have an account? <a href="#" id="showLoginBtn"
+                            style="color: var(--primary); font-weight: 600; text-decoration: none;">Sign In</a></p>
+                </div>
+            </div>
+
+            <div id="authMessage" class="text-center hidden" style="margin-top: 1rem; font-weight: 500;"></div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="config.js"></script>
+    <script src="auth.js"></script>
+
+</body>
+
+</html>

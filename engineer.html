@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Engineer Dashboard | FieldTrack Pro</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        .task-card {
+            background: white;
+            border-radius: var(--border-radius);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-sm);
+        }
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 1rem;
+        }
+        .task-body p {
+            margin-bottom: 0.5rem;
+            color: var(--text-main);
+        }
+        .task-actions {
+            margin-top: 1.5rem;
+            display: flex;
+            gap: 1rem;
+        }
+        .btn-full {
+            flex: 1;
+            padding: 1rem;
+            font-size: 1rem;
+        }
+        #mobileMap {
+            height: 300px;
+            width: 100%;
+            border-radius: var(--border-radius);
+            margin-top: 1rem;
+            z-index: 1;
+        }
+        .tracking-indicator {
+            display: none;
+            align-items: center;
+            background: #FEF2F2;
+            color: #DC2626;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .tracking-indicator.active {
+            display: inline-flex;
+        }
+        .pulse {
+            width: 10px;
+            height: 10px;
+            background-color: #DC2626;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse-animation 1.5s infinite;
+        }
+        @keyframes pulse-animation {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(220, 38, 38, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar" style="width: 260px;">
+            <div class="sidebar-header">
+                <h2 style="font-size: 1.25rem; margin: 0; display: flex; align-items: center;">
+                    <i class="fa-solid fa-map-location-dot text-primary" style="margin-right: 0.5rem;"></i>
+                    FieldTrack Pro
+                </h2>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" id="btnActiveJobs">
+                    <i class="fa-solid fa-clipboard-list"></i> Active Jobs
+                </a>
+                <a href="#" class="nav-item" id="btnJobHistory">
+                    <i class="fa-solid fa-clock-rotate-left"></i> Job History
+                </a>
+            </nav>
+            <div style="padding: 1.5rem;">
+                <button id="logoutBtn" class="btn btn-outline" style="width: 100%; color: white; border-color: rgba(255,255,255,0.2);">
+                    <i class="fa-solid fa-arrow-right-from-bracket" style="margin-right: 0.5rem;"></i> Logout
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Topbar -->
+            <header class="topbar">
+                <div>
+                    <h2 id="currentSectionTitle" style="margin: 0; font-size: 1.25rem;">My Assignments</h2>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div id="trackingIndicator" class="tracking-indicator">
+                        <div class="pulse"></div> Live Tracking Active
+                    </div>
+                    <span id="engineerName" style="font-weight: 500;">Engineer Name</span>
+                    <div style="width: 35px; height: 35px; background: var(--secondary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                        <i class="fa-solid fa-hard-hat"></i>
+                    </div>
+                </div>
+            </header>
+
+            <div class="content-area" style="max-width: 800px; margin: 0 auto; width: 100%;">
+                
+                <!-- Active Jobs Section -->
+                <div id="activeJobsSection">
+                    <div id="tasksContainer">
+                        <div class="text-center text-muted" style="padding: 3rem;">
+                            <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 2rem; margin-bottom: 1rem;"></i>
+                            <p>Loading assignments...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Job History Section -->
+                <div id="jobHistorySection" class="hidden">
+                    <div class="card" style="margin-bottom: 1.5rem; padding: 1rem;">
+                        <div class="flex items-center gap-4">
+                            <div style="flex: 1;">
+                                <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">FILTER BY DATE</label>
+                                <input type="date" id="historyDateFilter" class="form-control" style="margin-top: 0.5rem;">
+                            </div>
+                            <button id="clearFilterBtn" class="btn btn-outline" style="margin-top: 1.5rem;">Clear</button>
+                        </div>
+                    </div>
+                    <div id="historyContainer">
+                        <div class="text-center text-muted" style="padding: 3rem;">
+                            <p>Loading history...</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Scripts -->
+    <script src="config.js"></script>
+    <script src="engineer.js"></script>
+</body>
+</html>
