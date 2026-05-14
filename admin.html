@@ -12,6 +12,8 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <!-- Supabase JS -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- SheetJS (Excel Export) -->
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
         /* Modal Styles */
         .modal {
@@ -146,13 +148,21 @@
 
                     <!-- Task List -->
                     <div class="card">
-                        <h3 style="margin-bottom: 1rem;">Recent Tasks</h3>
+                        <div class="flex justify-between items-center" style="margin-bottom: 1rem;">
+                            <h3 style="margin: 0;">Recent Tasks</h3>
+                            <div class="flex items-center gap-2">
+                                <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">FILTER DATE:</label>
+                                <input type="date" id="taskDateFilter" class="form-control" style="width: auto;">
+                                <button id="clearTaskFilterBtn" class="btn btn-outline" style="padding: 0.5rem;">Clear</button>
+                            </div>
+                        </div>
                         <div class="table-container">
                             <table>
                                 <thead>
                                     <tr>
                                         <th>Task ID</th>
                                         <th>Customer</th>
+                                        <th>Address</th>
                                         <th>Assigned To</th>
                                         <th>Status</th>
                                         <th>Priority</th>
@@ -198,6 +208,11 @@
                                 </tbody>
                             </table>
                         </div>
+                        <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end;">
+                            <button id="exportDataBtn" class="btn btn-outline" style="background: var(--bg-card); color: var(--secondary); border-color: var(--secondary);">
+                                <i class="fa-solid fa-file-excel" style="margin-right: 0.5rem;"></i> Export All Data to Excel
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -242,6 +257,56 @@
                 <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1rem;">
                     <button type="button" class="btn btn-outline" id="cancelTaskBtn">Cancel</button>
                     <button type="submit" class="btn btn-primary" id="saveTaskBtn">Assign Task</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Edit Task Modal -->
+    <div id="editTaskModal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="closeEditTaskModal">&times;</span>
+            <h2 style="margin-bottom: 1.5rem;">Edit / Reassign Task</h2>
+            <form id="editTaskForm">
+                <input type="hidden" id="editTaskId">
+                <div class="form-group">
+                    <label>Customer Name</label>
+                    <input type="text" id="editTaskCustomer" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Address</label>
+                    <input type="text" id="editTaskAddress" class="form-control" required>
+                </div>
+                <div class="flex gap-4">
+                    <div class="form-group" style="flex: 1;">
+                        <label>Priority</label>
+                        <select id="editTaskPriority" class="form-control">
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                            <option value="critical">Critical</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Status</label>
+                        <select id="editTaskStatus" class="form-control">
+                            <option value="Assigned">Assigned</option>
+                            <option value="Trip Start">Trip Start</option>
+                            <option value="In Progress">In Progress</option>
+                            <option value="Completed">Completed</option>
+                            <option value="Leave Site">Leave Site</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Reassign To</label>
+                    <select id="editTaskAssignee" class="form-control" required>
+                        <!-- Loaded via JS -->
+                    </select>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1rem;">
+                    <button type="button" class="btn btn-outline" id="cancelEditTaskBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="saveEditTaskBtn">Update Task</button>
                 </div>
             </form>
         </div>
