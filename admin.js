@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     // 4. Load Dashboard Data
-    async function loadDashboard() {
+    async function loadDashboard(dateFilter = null) {
         try {
             // Load Engineers Count
             const { count: engCount } = await supabaseClient
@@ -90,14 +90,22 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('statEngineers').textContent = engCount || 0;
 
             // Load Tasks
-            const { data: tasks, error: tasksError } = await supabaseClient
+            let query = supabaseClient
                 .from('tasks')
                 .select(`
-                    id, site_id, customer_name, status, priority, lat, lng,
+                    id, site_id, customer_name, address, status, priority, lat, lng,
                     start_lat, start_lng, end_lat, end_lng,
                     assigned_to, profiles (full_name)
                 `)
                 .order('created_at', { ascending: false });
+
+            if (dateFilter) {
+                // Filter by created_at date
+                query = query.gte('created_at', `${dateFilter}T00:00:00Z`)
+                             .lte('created_at', `${dateFilter}T23:59:59Z`);
+            }
+
+            const { data: tasks, error: tasksError } = await query;
                 
             if (tasksError) throw tasksError;
 
@@ -110,30 +118,40 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (task.status === 'In Progress') inProgress++;
 
                 // 1. Task Site Marker
-                if (!taskMarkers[task.id]) {
-                    const marker = L.marker([task.lat, task.lng], {icon: taskIcon})
-                        .bindPopup(`<b>Site: ${task.customer_name}</b><br>Status: ${task.status}`)
-                        .addTo(map);
-                    taskMarkers[task.id] = { site: marker };
-                } else {
-                    taskMarkers[task.id].site.setPopupContent(`<b>Site: ${task.customer_name}</b><br>Status: ${task.status}`);
-                }
-
-                // 2. Start Location Marker
-                if (task.start_lat && task.start_lng) {
-                    if (!taskMarkers[task.id].start) {
-                        taskMarkers[task.id].start = L.marker([task.start_lat, task.start_lng], {icon: startIcon})
-                            .bindPopup(`<b>Started Here</b><br>${task.customer_name}`)
+                if (task.status !== 'Leave Site') {
+                    if (!taskMarkers[task.id]) {
+                        const marker = L.marker([task.lat, task.lng], {icon: taskIcon})
+                            .bindPopup(`<b>Site: ${task.customer_name}</b><br>Status: ${task.status}`)
                             .addTo(map);
+                        taskMarkers[task.id] = { site: marker };
+                    } else {
+                        taskMarkers[task.id].site.setPopupContent(`<b>Site: ${task.customer_name}</b><br>Status: ${task.status}`);
                     }
-                }
 
-                // 3. End Location Marker
-                if (task.end_lat && task.end_lng) {
-                    if (!taskMarkers[task.id].end) {
-                        taskMarkers[task.id].end = L.marker([task.end_lat, task.end_lng], {icon: endIcon})
-                            .bindPopup(`<b>Completed Here</b><br>${task.customer_name}`)
-                            .addTo(map);
+                    // 2. Start Location Marker
+                    if (task.start_lat && task.start_lng) {
+                        if (!taskMarkers[task.id].start) {
+                            taskMarkers[task.id].start = L.marker([task.start_lat, task.start_lng], {icon: startIcon})
+                                .bindPopup(`<b>Started Here</b><br>${task.customer_name}`)
+                                .addTo(map);
+                        }
+                    }
+
+                    // 3. End Location Marker
+                    if (task.end_lat && task.end_lng) {
+                        if (!taskMarkers[task.id].end) {
+                            taskMarkers[task.id].end = L.marker([task.end_lat, task.end_lng], {icon: endIcon})
+                                .bindPopup(`<b>Completed Here</b><br>${task.customer_name}`)
+                                .addTo(map);
+                        }
+                    }
+                } else {
+                    // Remove markers if task is completed/left site
+                    if (taskMarkers[task.id]) {
+                        if (taskMarkers[task.id].site) map.removeLayer(taskMarkers[task.id].site);
+                        if (taskMarkers[task.id].start) map.removeLayer(taskMarkers[task.id].start);
+                        if (taskMarkers[task.id].end) map.removeLayer(taskMarkers[task.id].end);
+                        delete taskMarkers[task.id];
                     }
                 }
 
@@ -155,10 +173,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                 tr.innerHTML = `
                     <td style="font-family: monospace; font-size: 0.85rem;">${task.id.split('-')[0]}</td>
                     <td style="font-weight: 500;">${task.customer_name}</td>
+                    <td style="font-size: 0.85rem; color: var(--text-muted);">${task.address}</td>
                     <td>${task.profiles ? task.profiles.full_name : 'Unassigned'}</td>
                     <td><span class="badge ${badgeClass}">${task.status}</span></td>
                     <td style="text-transform: capitalize;">${task.priority}</td>
-                    <td>${actionsHtml}</td>
+                    <td>
+                        <div class="flex gap-2">
+                            ${actionsHtml}
+                            <button class="btn btn-outline" style="padding: 0.4rem 0.8rem;" onclick="openEditTaskModal('${task.id}')" title="Edit/Reassign">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </button>
+                        </div>
+                    </td>
                 `;
                 tableBody.appendChild(tr);
             });
@@ -176,6 +202,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             showToast("Failed to load dashboard data");
         }
     }
+
+
+    // 4.1 Filter Listeners
+    document.getElementById('taskDateFilter').onchange = (e) => {
+        loadDashboard(e.target.value);
+    };
+
+    document.getElementById('clearTaskFilterBtn').onclick = () => {
+        document.getElementById('taskDateFilter').value = '';
+        loadDashboard();
+    };
 
     // 5. Load Engineers Data
     async function loadEngineers() {
@@ -210,6 +247,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                             <button class="btn btn-outline" style="padding: 0.4rem 0.8rem;" onclick="viewEngineerHistory('${eng.id}', '${eng.full_name}')" title="View History">
                                 <i class="fa-solid fa-history"></i>
                             </button>
+                            <button class="btn btn-outline" style="padding: 0.4rem 0.8rem; color: var(--secondary); border-color: var(--secondary);" onclick="exportEngineerData('${eng.id}', '${eng.full_name}')" title="Export to Excel">
+                                <i class="fa-solid fa-file-excel"></i>
+                            </button>
                             <button class="btn btn-outline" style="padding: 0.4rem 0.8rem;" onclick="openEditEngModal('${eng.id}', '${eng.full_name}')" title="Edit Profile">
                                 <i class="fa-solid fa-user-pen"></i>
                             </button>
@@ -231,6 +271,54 @@ document.addEventListener('DOMContentLoaded', async () => {
             showToast("Failed to load engineers");
         }
     }
+
+    // Export Engineer Data
+    window.exportEngineerData = async (id, name) => {
+        try {
+            const { data: tasks, error } = await supabaseClient
+                .from('tasks')
+                .select('*')
+                .eq('assigned_to', id)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            if (tasks.length === 0) {
+                showToast(`No data found for ${name}`);
+                return;
+            }
+
+            const exportData = tasks.map(t => ({
+                'Task ID': t.id,
+                'Site ID': t.site_id,
+                'Customer': t.customer_name,
+                'Address': t.address,
+                'Status': t.status,
+                'Priority': t.priority,
+                'Created At': t.created_at ? new Date(t.created_at).toLocaleString() : '',
+                'Trip Start': t.started_at ? new Date(t.started_at).toLocaleString() : '',
+                'Reached Site': t.reached_site_at ? new Date(t.reached_site_at).toLocaleString() : '',
+                'Completed At': t.completed_at ? new Date(t.completed_at).toLocaleString() : '',
+                'Left Site': t.left_site_at ? new Date(t.left_site_at).toLocaleString() : ''
+            }));
+
+            const worksheet = XLSX.utils.json_to_sheet(exportData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Tasks");
+
+            // Auto-size columns
+            const colWidths = Object.keys(exportData[0]).map(key => ({
+                wch: Math.max(key.length, ...exportData.map(row => row[key] ? row[key].toString().length : 0)) + 2
+            }));
+            worksheet['!cols'] = colWidths;
+
+            XLSX.writeFile(workbook, `${name.replace(' ', '_')}_Report.xlsx`);
+            showToast(`Report generated for ${name}`);
+        } catch (err) {
+            console.error("Export failed:", err);
+            showToast("Failed to export data");
+        }
+    };
 
     // Edit Engineer
     window.openEditEngModal = (id, name) => {
@@ -310,6 +398,36 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
+    // Edit Task
+    window.openEditTaskModal = async (taskId) => {
+        try {
+            const { data: task, error } = await supabaseClient
+                .from('tasks')
+                .select('*')
+                .eq('id', taskId)
+                .single();
+            
+            if (error) throw error;
+
+            const { data: engineers } = await supabaseClient.from('profiles').select('id, full_name').eq('role', 'engineer');
+            const select = document.getElementById('editTaskAssignee');
+            select.innerHTML = '<option value="">Select an engineer...</option>';
+            if (engineers) engineers.forEach(e => select.innerHTML += `<option value="${e.id}">${e.full_name}</option>`);
+
+            document.getElementById('editTaskId').value = task.id;
+            document.getElementById('editTaskCustomer').value = task.customer_name;
+            document.getElementById('editTaskAddress').value = task.address;
+            document.getElementById('editTaskPriority').value = task.priority;
+            document.getElementById('editTaskStatus').value = task.status;
+            document.getElementById('editTaskAssignee').value = task.assigned_to;
+
+            document.getElementById('editTaskModal').style.display = 'block';
+        } catch (err) {
+            console.error("Failed to load task for edit:", err);
+            showToast("Failed to load task data");
+        }
+    };
+
     // Helper for Live Tracking
     window.centerOnEngineer = (engineerId) => {
         if (markers[engineerId]) {
@@ -326,6 +444,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const closeBtn = document.getElementById('closeTaskModal');
     const cancelBtn = document.getElementById('cancelTaskBtn');
 
+    const editTaskModal = document.getElementById('editTaskModal');
+    const closeEditTaskBtn = document.getElementById('closeEditTaskModal');
+    const cancelEditTaskBtn = document.getElementById('cancelEditTaskBtn');
+
     openBtn.onclick = async () => {
         const { data: engineers } = await supabaseClient.from('profiles').select('id, full_name').eq('role', 'engineer');
         const select = document.getElementById('taskAssignee');
@@ -336,6 +458,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     closeBtn.onclick = () => modal.style.display = 'none';
     cancelBtn.onclick = () => modal.style.display = 'none';
+
+    closeEditTaskBtn.onclick = () => editTaskModal.style.display = 'none';
+    cancelEditTaskBtn.onclick = () => editTaskModal.style.display = 'none';
 
     // 7. Modal Logic (Engineers)
     const engModal = document.getElementById('engModal');
@@ -361,6 +486,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     window.onclick = (e) => { 
         if (e.target == modal) modal.style.display = 'none'; 
+        if (e.target == editTaskModal) editTaskModal.style.display = 'none';
         if (e.target == engModal) engModal.style.display = 'none';
         if (e.target == editEngModal) editEngModal.style.display = 'none';
         if (e.target == historyModal) historyModal.style.display = 'none';
@@ -395,6 +521,58 @@ document.addEventListener('DOMContentLoaded', async () => {
             showToast("Failed to assign task");
         } finally {
             saveBtn.disabled = false; saveBtn.textContent = 'Assign Task';
+        }
+    });
+
+    document.getElementById('editTaskForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const saveBtn = document.getElementById('saveEditTaskBtn');
+        saveBtn.disabled = true; saveBtn.textContent = 'Updating...';
+
+        const taskId = document.getElementById('editTaskId').value;
+        const newStatus = document.getElementById('editTaskStatus').value;
+        
+        const taskData = {
+            customer_name: document.getElementById('editTaskCustomer').value,
+            address: document.getElementById('editTaskAddress').value,
+            priority: document.getElementById('editTaskPriority').value,
+            status: newStatus,
+            assigned_to: document.getElementById('editTaskAssignee').value
+        };
+
+        // If status is changed or task is reassigned, reset relevant lifecycle timestamps
+        // to make it a "new task" for the engineer
+        if (newStatus === 'Assigned') {
+            taskData.started_at = null;
+            taskData.reached_site_at = null;
+            taskData.completed_at = null;
+            taskData.left_site_at = null;
+            taskData.start_lat = null; taskData.start_lng = null;
+            taskData.end_lat = null; taskData.end_lng = null;
+        } else if (newStatus === 'Trip Start') {
+            taskData.reached_site_at = null;
+            taskData.completed_at = null;
+            taskData.left_site_at = null;
+            taskData.end_lat = null; taskData.end_lng = null;
+        } else if (newStatus === 'In Progress') {
+            taskData.completed_at = null;
+            taskData.left_site_at = null;
+            taskData.end_lat = null; taskData.end_lng = null;
+        } else if (newStatus === 'Completed') {
+            taskData.left_site_at = null;
+        }
+
+        try {
+            const { error } = await supabaseClient.from('tasks').update(taskData).eq('id', taskId);
+            if (error) throw error;
+            showToast("Task updated successfully!");
+            editTaskModal.style.display = 'none';
+            loadDashboard();
+        } catch (err) {
+            console.error("Task update failed:", err);
+            showToast("Failed to update task");
+        } finally {
+            saveBtn.disabled = false; saveBtn.textContent = 'Update Task';
         }
     });
 
@@ -461,7 +639,58 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // 9. Realtime Tracking Updates
+    // 9. Export Data to Excel
+    document.getElementById('exportDataBtn').onclick = async () => {
+        const btn = document.getElementById('exportDataBtn');
+        btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Exporting...';
+
+        try {
+            const { data: tasks, error } = await supabaseClient
+                .from('tasks')
+                .select(`
+                    id, site_id, customer_name, address, status, priority, 
+                    created_at, started_at, reached_site_at, completed_at, left_site_at,
+                    profiles (full_name)
+                `);
+
+            if (error) throw error;
+
+            const exportData = tasks.map(t => ({
+                'Task ID': t.id,
+                'Site ID': t.site_id,
+                'Customer': t.customer_name,
+                'Address': t.address,
+                'Engineer': t.profiles ? t.profiles.full_name : 'Unassigned',
+                'Status': t.status,
+                'Priority': t.priority,
+                'Created At': t.created_at ? new Date(t.created_at).toLocaleString() : '',
+                'Trip Start': t.started_at ? new Date(t.started_at).toLocaleString() : '',
+                'Reached Site': t.reached_site_at ? new Date(t.reached_site_at).toLocaleString() : '',
+                'Completed At': t.completed_at ? new Date(t.completed_at).toLocaleString() : '',
+                'Left Site': t.left_site_at ? new Date(t.left_site_at).toLocaleString() : ''
+            }));
+
+            const worksheet = XLSX.utils.json_to_sheet(exportData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Tasks Data");
+
+            // Auto-size columns
+            const colWidths = Object.keys(exportData[0]).map(key => ({
+                wch: Math.max(key.length, ...exportData.map(row => row[key] ? row[key].toString().length : 0)) + 2
+            }));
+            worksheet['!cols'] = colWidths;
+
+            XLSX.writeFile(workbook, `FieldTrack_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+            showToast("Data exported successfully!");
+        } catch (err) {
+            console.error("Export failed:", err);
+            showToast("Failed to export data");
+        } finally {
+            btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-file-excel" style="margin-right: 0.5rem;"></i> Export All Data to Excel';
+        }
+    };
+
+    // 10. Realtime Tracking Updates
     function subscribeToTracking() {
         supabaseClient.channel('custom-tracking-channel')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tracking' }, (payload) => {
